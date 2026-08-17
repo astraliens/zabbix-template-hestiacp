@@ -1,0 +1,449 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: a571c0d144b14fd4a87a9d9b2aa9fcd6
+      name: Templates/Applications
+  templates:
+    - uuid: 550e8400e29b41d4a716446655440000
+      template: 'Template HestiaCP User Monitoring'
+      name: 'HestiaCP User Monitoring'
+      description: 'Monitors per-user system and HestiaCP metrics on hosting servers'
+      groups:
+        - name: Templates/Applications
+      items:
+        - uuid: 550e8400e29b41d4a716446655440001
+          name: 'HestiaCP: Users Statistics (Raw JSON)'
+          key: hestia.users.stats
+          delay: 30s
+          history: 1h
+          value_type: TEXT
+          trends: '0'
+          description: 'Retrieves raw JSON data for all HestiaCP users'
+      discovery_rules:
+        - uuid: 550e8400e29b41d4a716446655440003
+          name: 'HestiaCP User Discovery'
+          key: hestia.users.discovery
+          delay: 10m
+          description: 'Auto-discover HestiaCP users for monitoring'
+          item_prototypes:
+            - uuid: 7ef973c79d154259857302192e3f0de6
+              name: 'HestiaCP: Bandwidth Quota Used % {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.bandwidth_quota_pct[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: '%'
+              description: 'U_BANDWIDTH / BANDWIDTH × 100 for user {#USER}; 0 if quota is unlimited/empty/0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].bandwidth_quota_pct.first()'
+              master_item:
+                key: hestia.users.stats
+              trigger_prototypes:
+                - uuid: bee1dad7532a4b6cb64a343e845f0373
+                  expression: 'last(/Template HestiaCP User Monitoring/hestia.user.bandwidth_quota_pct[{#USER}])>{$BANDWIDTH.QUOTA.PCT.LIMIT}'
+                  name: 'HestiaCP: Bandwidth near package quota for user {#USER}'
+                  priority: WARNING
+                  description: 'User {#USER} bandwidth usage above {$BANDWIDTH.QUOTA.PCT.LIMIT}% of Hestia BANDWIDTH quota'
+            - uuid: 550e8400e29b41d4a716446655440004
+              name: 'HestiaCP: CPU Usage {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.cpu[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: '%'
+              description: 'CPU usage percentage for user {#USER}'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].cpu.first()'
+              master_item:
+                key: hestia.users.stats
+              trigger_prototypes:
+                - uuid: 38266e425a9f417da6475b8258337a1c
+                  expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.cpu[{#USER}],{$CPU.AVG.PERIOD})>{$CPU.AVG.LIMIT}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.cpu[{#USER}],{$CPU.AVG.PERIOD})<{$CPU.AVG.LIMIT}*0.95'
+                  name: 'HestiaCP: Average CPU usage above normal for user {#USER}'
+                  priority: WARNING
+                  description: 'User {#USER} consuming more than normal CPU resources (avg {$CPU.AVG.PERIOD} > {$CPU.AVG.LIMIT}%)'
+                - uuid: d606cf99a9f541c4b5b88c8998f4a814
+                  expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.cpu[{#USER}],{$CPU.EXTREME.PERIOD})>{$CPU.EXTREME.LIMIT}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.cpu[{#USER}],{$CPU.EXTREME.PERIOD})<{$CPU.EXTREME.LIMIT}*0.95'
+                  name: 'HestiaCP: Extremely High CPU usage for user {#USER}'
+                  priority: HIGH
+                  description: 'User {#USER} is consuming extremely high CPU resources (avg {$CPU.EXTREME.PERIOD} > {$CPU.EXTREME.LIMIT}%)'
+                - uuid: e971258de6c6488fb032a8adf941c416
+                  expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.cpu[{#USER}],{$CPU.EXTREME.LONG.PERIOD})>{$CPU.EXTREME.LIMIT}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.cpu[{#USER}],{$CPU.EXTREME.LONG.PERIOD})<{$CPU.EXTREME.LIMIT}*0.95'
+                  name: 'HestiaCP: Extremely High LONG TIME CPU usage for user {#USER}'
+                  event_name: 'HestiaCP: Extremely High LONG TIME CPU usage for user {#USER}. Candidate for ACCOUNT BLOCKING'
+                  priority: DISASTER
+                  description: 'User {#USER} is consuming extremely high CPU resources (avg {$CPU.EXTREME.LONG.PERIOD} > {$CPU.EXTREME.LIMIT}%)'
+                - uuid: 26dbc26a262c4e35910d1b44f8c0aee0
+                  expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.cpu[{#USER}],{$CPU.HIGH.LONG.PERIOD})>{$CPU.HIGH.LIMIT}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.cpu[{#USER}],{$CPU.HIGH.LONG.PERIOD})<{$CPU.HIGH.LIMIT}*0.95'
+                  name: 'HestiaCP: High CPU LONG TIME usage for user {#USER}'
+                  event_name: 'HestiaCP: High CPU LONG TIME usage for user {#USER}. Candidate for ACCOUNT BLOCKING'
+                  priority: DISASTER
+                  description: 'User {#USER} is consuming high CPU resources (avg {$CPU.HIGH.LONG.PERIOD} > {$CPU.HIGH.LIMIT}%)'
+                - uuid: 550e8400e29b41d4a71644665544000a
+                  expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.cpu[{#USER}],{$CPU.HIGH.PERIOD})>{$CPU.HIGH.LIMIT}'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.cpu[{#USER}],{$CPU.HIGH.PERIOD})<{$CPU.HIGH.LIMIT}*0.95'
+                  name: 'HestiaCP: High CPU usage for user {#USER}'
+                  priority: AVERAGE
+                  description: 'User {#USER} is consuming high CPU resources (avg {$CPU.HIGH.PERIOD} > {$CPU.HIGH.LIMIT}%)'
+            - uuid: 87c23c8fbc844ee7950064cfb1fb9159
+              name: 'HestiaCP: Disk Quota Used % {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.disk_quota_pct[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: '%'
+              description: 'U_DISK / DISK_QUOTA × 100 for user {#USER}; 0 if quota is unlimited/empty/0'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].disk_quota_pct.first()'
+              master_item:
+                key: hestia.users.stats
+              trigger_prototypes:
+                - uuid: a092602b27fa44f8a6841c6669cc80aa
+                  expression: 'last(/Template HestiaCP User Monitoring/hestia.user.disk_quota_pct[{#USER}])>{$DISK.QUOTA.PCT.LIMIT}'
+                  name: 'HestiaCP: Disk near package quota for user {#USER}'
+                  priority: WARNING
+                  description: 'User {#USER} disk usage above {$DISK.QUOTA.PCT.LIMIT}% of Hestia DISK_QUOTA'
+            - uuid: 500abedb99fa45cb98857cdb07315dd6
+              name: 'HestiaCP: Memory Usage {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.membyte[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: B
+              description: 'Memory usage in bytes (PSS) for user {#USER}'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].membyte.first()'
+              master_item:
+                key: hestia.users.stats
+              trigger_prototypes:
+                - uuid: 550e8400e29b41d4a71644665544000b
+                  expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.membyte[{#USER}],{$MEM.ABS.PERIOD})>{$MEM.ABS.LIMIT}*1024*1024'
+                  recovery_mode: RECOVERY_EXPRESSION
+                  recovery_expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.membyte[{#USER}],{$MEM.ABS.PERIOD})<{$MEM.ABS.LIMIT}*1024*1024*0.9'
+                  name: 'HestiaCP: High Memory usage for user {#USER}'
+                  priority: AVERAGE
+                  description: 'User {#USER} is consuming high memory resources (avg {$MEM.ABS.PERIOD} > {$MEM.ABS.LIMIT} MB)'
+            - uuid: 550e8400e29b41d4a716446655440005
+              name: 'HestiaCP: Memory Usage % {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.mem[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: '%'
+              description: 'Memory usage percentage for user {#USER}'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].mem.first()'
+              master_item:
+                key: hestia.users.stats
+            - uuid: 550e8400e29b41d4a716446655440009
+              name: 'HestiaCP: PHP-FPM Processes {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.phpfpm[{#USER}]'
+              delay: '0'
+              history: 30d
+              description: 'PHP-FPM process count for user {#USER}'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].phpfpm.first()'
+              master_item:
+                key: hestia.users.stats
+              trigger_prototypes:
+                - uuid: 550e8400e29b41d4a71644665544000d
+                  expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.phpfpm[{#USER}],5m)>{$PROCFPM.HIGH.LIMIT}'
+                  name: 'HestiaCP: Excessive PHP-FPM processes for user {#USER}'
+                  priority: WARNING
+                  description: 'User {#USER} has excessive PHP-FPM processes (avg 5min > {$PROCFPM.HIGH.LIMIT})'
+            - uuid: 6d93258b0aae4542b4dafe5c72f53828
+              name: 'HestiaCP: User Plan {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.plan[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: CHAR
+              trends: '0'
+              description: 'Plan name for user {#USER}'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].plan.first()'
+              master_item:
+                key: hestia.users.stats
+              trigger_prototypes:
+                - uuid: fcb9c0f0aa9d4ba983aee7ef26a0a918
+                  expression: 'change(/Template HestiaCP User Monitoring/hestia.user.plan[{#USER}])<>0'
+                  name: 'HestiaCP: Plan changed for user {#USER}'
+                  event_name: 'HestiaCP: Plan changed for user {#USER}: from {?last(//hestia.user.plan[{#USER}],#2)} to {ITEM.LASTVALUE}'
+                  opdata: 'New plan: {ITEM.LASTVALUE}'
+                  priority: INFO
+                  description: 'Plan was changed for user {#USER}. Previous and new values are shown in the event name.'
+                  manual_close: 'YES'
+            - uuid: 550e8400e29b41d4a716446655440006
+              name: 'HestiaCP: Process Count {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.proc[{#USER}]'
+              delay: '0'
+              history: 30d
+              description: 'Number of processes for user {#USER}'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].proc.first()'
+              master_item:
+                key: hestia.users.stats
+              trigger_prototypes:
+                - uuid: 550e8400e29b41d4a71644665544000c
+                  expression: 'avg(/Template HestiaCP User Monitoring/hestia.user.proc[{#USER}],5m)>{$PROC.HIGH.LIMIT}'
+                  name: 'HestiaCP: Excessive process count for user {#USER}'
+                  priority: WARNING
+                  description: 'User {#USER} has excessive running processes (avg 5min > {$PROC.HIGH.LIMIT})'
+            - uuid: ce2250a03e424597aa4afc5c29f82e9f
+              name: 'HestiaCP: Suspended {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.suspended[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: CHAR
+              trends: '0'
+              description: 'Account suspended flag for user {#USER} (yes/no)'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].suspended.first()'
+              master_item:
+                key: hestia.users.stats
+              trigger_prototypes:
+                - uuid: 509b49c687a5433197dcd8a33a360918
+                  expression: 'change(/Template HestiaCP User Monitoring/hestia.user.suspended[{#USER}])<>0'
+                  name: 'HestiaCP: Suspended state changed for user {#USER}'
+                  event_name: 'HestiaCP: Suspended state changed for user {#USER}: from {?last(//hestia.user.suspended[{#USER}],#2)} to {ITEM.LASTVALUE}'
+                  opdata: 'New state: {ITEM.LASTVALUE}'
+                  priority: INFO
+                  description: 'Suspended flag changed for user {#USER}. Previous and new values are shown in the event name.'
+                  manual_close: 'YES'
+            - uuid: 913b037ae7a74f63b53c954c83667a61
+              name: 'HestiaCP: Bandwidth Used {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.u_bandwidth[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: B
+              description: 'HestiaCP bandwidth usage (U_BANDWIDTH) for user {#USER}, stored in bytes'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].u_bandwidth.first()'
+                - type: MULTIPLIER
+                  parameters:
+                    - '1048576'
+              master_item:
+                key: hestia.users.stats
+            - uuid: fdfea98a12a343fdb3ccde8cc6dce920
+              name: 'HestiaCP: Cron Jobs Count {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.u_cron_jobs[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              description: 'Number of cron jobs for user {#USER} (Hestia U_CRON_JOBS)'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].u_cron_jobs.first()'
+              master_item:
+                key: hestia.users.stats
+            - uuid: 22ff747f4bb74100bf36de0736b926b4
+              name: 'HestiaCP: Disk Used {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.u_disk[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: B
+              description: 'HestiaCP disk usage (U_DISK) for user {#USER}, stored in bytes'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].u_disk.first()'
+                - type: MULTIPLIER
+                  parameters:
+                    - '1048576'
+              master_item:
+                key: hestia.users.stats
+            - uuid: 213c0aa4f75e40c68d498118c220b97c
+              name: 'HestiaCP: Disk DB {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.u_disk_db[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: B
+              description: 'HestiaCP database disk usage (U_DISK_DB) for user {#USER}, stored in bytes'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].u_disk_db.first()'
+                - type: MULTIPLIER
+                  parameters:
+                    - '1048576'
+              master_item:
+                key: hestia.users.stats
+            - uuid: 6016888f05d14e7fb98b2c59783a504a
+              name: 'HestiaCP: Disk Mail {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.u_disk_mail[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: B
+              description: 'HestiaCP mail disk usage (U_DISK_MAIL) for user {#USER}, stored in bytes'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].u_disk_mail.first()'
+                - type: MULTIPLIER
+                  parameters:
+                    - '1048576'
+              master_item:
+                key: hestia.users.stats
+            - uuid: 84bbdb1f85954ba795b7d38d22afc04b
+              name: 'HestiaCP: Disk Web {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.u_disk_web[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              units: B
+              description: 'HestiaCP web disk usage (U_DISK_WEB) for user {#USER}, stored in bytes'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].u_disk_web.first()'
+                - type: MULTIPLIER
+                  parameters:
+                    - '1048576'
+              master_item:
+                key: hestia.users.stats
+            - uuid: c0b71328a6fe46d7bec2505c400efeaa
+              name: 'HestiaCP: Mail Accounts Count {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.u_mail_accounts[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              description: 'Number of mailboxes for user {#USER} (Hestia U_MAIL_ACCOUNTS)'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].u_mail_accounts.first()'
+              master_item:
+                key: hestia.users.stats
+            - uuid: f5247dd2e1844978a6562b07377ed8e9
+              name: 'HestiaCP: Web Domains Count {#USER}'
+              type: DEPENDENT
+              key: 'hestia.user.u_web_domains[{#USER}]'
+              delay: '0'
+              history: 30d
+              value_type: FLOAT
+              description: 'Number of web domains created for user {#USER} (Hestia U_WEB_DOMAINS)'
+              preprocessing:
+                - type: JSONPATH
+                  parameters:
+                    - '$.data[?(@.user == ''{#USER}'')].u_web_domains.first()'
+              master_item:
+                key: hestia.users.stats
+          graph_prototypes:
+            - uuid: 68c8c17f1c9e445e8874659ce2d61827
+              name: 'CPU Load by user {#USER}'
+              ymax_type_1: FIXED
+              graph_items:
+                - drawtype: FILLED_REGION
+                  color: 1A7C11
+                  calc_fnc: ALL
+                  item:
+                    host: 'Template HestiaCP User Monitoring'
+                    key: 'hestia.user.cpu[{#USER}]'
+            - uuid: fdfced771ef04555be72e3b5226cf167
+              name: 'Disk usage by user {#USER}'
+              graph_items:
+                - color: F63100
+                  calc_fnc: ALL
+                  item:
+                    host: 'Template HestiaCP User Monitoring'
+                    key: 'hestia.user.u_disk[{#USER}]'
+            - uuid: ff5715779505487a98d75162f01766d5
+              name: 'Memory consumption by user {#USER}'
+              graph_items:
+                - color: 26A69A
+                  calc_fnc: ALL
+                  item:
+                    host: 'Template HestiaCP User Monitoring'
+                    key: 'hestia.user.membyte[{#USER}]'
+      macros:
+        - macro: '{$BANDWIDTH.QUOTA.PCT.LIMIT}'
+          value: '95'
+          description: 'Alert when U_BANDWIDTH reaches this % of package BANDWIDTH quota (0 = unlimited → no alert)'
+        - macro: '{$CPU.AVG.LIMIT}'
+          value: '25'
+          description: 'Limit for Average CPU load per user trigger'
+        - macro: '{$CPU.AVG.PERIOD}'
+          value: 30m
+          description: 'Period to check Average CPU load per user trigger (Value MUST include unit s / m / h)'
+        - macro: '{$CPU.EXTREME.LIMIT}'
+          value: '70'
+          description: 'Limit for Extreme CPU load per user trigger'
+        - macro: '{$CPU.EXTREME.LONG.PERIOD}'
+          value: 7m
+          description: 'Period for Extreme LONG TIME CPU trigger (Value MUST include unit s / m / h)'
+        - macro: '{$CPU.EXTREME.PERIOD}'
+          value: 3m
+          description: 'Period to check Extreme CPU load per user trigger (Value MUST include unit s / m / h)'
+        - macro: '{$CPU.HIGH.LIMIT}'
+          value: '50'
+          description: 'Limit for High CPU load per user trigger'
+        - macro: '{$CPU.HIGH.LONG.PERIOD}'
+          value: 15m
+          description: 'Period for High LONG TIME CPU trigger (Value MUST include unit s / m / h)'
+        - macro: '{$CPU.HIGH.PERIOD}'
+          value: 5m
+          description: 'Period to check High CPU load per user trigger (Value MUST include unit s / m / h)'
+        - macro: '{$DISK.QUOTA.PCT.LIMIT}'
+          value: '95'
+          description: 'Alert when U_DISK reaches this % of package DISK_QUOTA (0 = unlimited → no alert)'
+        - macro: '{$MEM.ABS.LIMIT}'
+          value: '768'
+          description: 'Limit in MB for High Memory usage amount per user trigger'
+        - macro: '{$MEM.ABS.PERIOD}'
+          value: 35m
+          description: 'Period to check average value of memory consumption (Value MUST include unit s / m / h)'
+        - macro: '{$PROC.HIGH.LIMIT}'
+          value: '25'
+          description: 'Limit for amount of processes running per user trigger'
+        - macro: '{$PROCFPM.HIGH.LIMIT}'
+          value: '10'
+          description: 'Limit for amount of PHP-FPM processes running per user trigger'
